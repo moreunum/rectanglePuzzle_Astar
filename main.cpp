@@ -9,21 +9,6 @@
 
 using namespace std;
 
-//input:
-//AAA
-//AAB
-//BBB
-//
-//rec:
-//###
-//#BB
-//#BB
-//
-//vwork:
-//AAA
-//AAA
-//AAA
-
 ostream& operator<<(ostream& out, vector<string> vin){
   for(auto s : vin){
     out << s << endl;
@@ -60,7 +45,7 @@ void getLetters(
   }
 }
 
-vector<string>& createRec(
+vector<string>& updateRec(
   char letter, 
   size_t ystart,
   size_t xstart,
@@ -78,73 +63,19 @@ vector<string>& createRec(
 
 size_t matchCount(
   const vector<string>& rec,
-  const vector<string>& vin,
-  const vector<string>& vwork
+  const vector<string>& vin
 ){
   size_t ymax = rec.size();
   size_t xmax = rec[0].size();
   size_t count = 0;
   for(size_t y = 0; y < ymax; ++y){
     for(size_t x = 0; x < xmax; ++x){
-      // Ignore if not planning to overwrite
-      if(rec[y][x] == '#'){continue;}
-
-      // Exit if overwriting valid letter with an invalid letter
-      if(rec[y][x] != vin[y][x] && vwork[y][x] == vin[y][x]){
-        return 0;
-      }
-
-      // Only count if adding a new letter
-      if(rec[y][x] == vin[y][x] && vwork[y][x] != vin[y][x]){
+      if(rec[y][x] == vin[y][x]){
         ++count;
       }
     }
   }
   return count;
-}
-
-void updateWorking(
-  const vector<string>& rec,
-  vector<string>& vwork
-){
-  size_t ymax = rec.size();
-  size_t xmax = rec[0].size();
-  for(size_t y = 0; y < ymax; ++y){
-    for(size_t x = 0; x < xmax; ++x){
-      if(rec[y][x] == '#'){continue;}
-      vwork[y][x] = rec[y][x];
-    }
-  }
-}
-
-void addRectangle(
-  const vector<string>& vin, 
-  const set<char>& letters,
-  vector<string>& vwork
-){
-  size_t xmax = vin[0].size();
-  size_t ymax = vin.size();
-  size_t bestMatchCount = 0;
-  vector<string> bestMatch;
-  for(auto letter: letters){
-    for(size_t xstart = 0; xstart < xmax; ++xstart){
-      for(size_t ystart = 0; ystart < ymax; ++ystart){
-        for(size_t xlen = 1; xlen <= (xmax-xstart); ++xlen){
-          for(size_t ylen = 1; ylen <= (ymax-ystart); ++ylen){
-            vector<string> rec;
-            initRec(ymax, xmax, rec);
-            createRec(letter, ystart, xstart, ylen, xlen, rec);
-            size_t count = matchCount(rec, vin, vwork);
-            if(count > bestMatchCount){
-              bestMatchCount = count;
-              bestMatch = move(rec);
-            }
-          }
-        }
-      }
-    }
-  }
-  updateWorking(bestMatch, vwork);
 }
 
 bool testSolution(
@@ -159,61 +90,42 @@ bool testSolution(
   return true;
 }
 
-///////////////////////////////////////////////////////
-struct bfsStruct{
-  vector<string> vwork;
-  size_t depth = 0;
-  shared_ptr<bfsStruct> parent = nullptr;
-};
-
-///////////////////////////////////////////////////////
-shared_ptr<bfsStruct> recursiveAddRectangle(
+size_t addRectangle(
   const vector<string>& vin, 
   const set<char>& letters,
-  const vector<string>& vwork,
-  size_t maxDepth
+  const vector<string>& work
 ){
-  // queue holding upcoming working arrays for bfs
-  queue<shared_ptr<bfsStruct>> queue;
-  shared_ptr<bfsStruct> bfs(new bfsStruct);
-  bfs->vwork = vwork;
-  queue.push(bfs);
-
   size_t xmax = vin[0].size();
   size_t ymax = vin.size();
-  while(queue.front()->depth < maxDepth){
-    for(auto letter: letters){
-      for(size_t xstart = 0; xstart < xmax; ++xstart){
-        for(size_t ystart = 0; ystart < ymax; ++ystart){
-          for(size_t xlen = 1; xlen <= (xmax-xstart); ++xlen){
-            for(size_t ylen = 1; ylen <= (ymax-ystart); ++ylen){
-              vector<string> rec;
-              initRec(ymax, xmax, rec);
-              createRec(letter, ystart, xstart, ylen, xlen, rec);
-              
-              auto newWork = queue.front()->vwork;
-              updateWorking(rec, newWork);
-              //cout << "trying:" << endl << newWork << endl;
-
-              if(testSolution(vin, newWork)){
-                cout << "solved! " << queue.front()->depth+1 
-                  << endl << newWork << endl;
-                return queue.front();
-              }else{
-                shared_ptr<bfsStruct> newBfs(new bfsStruct);
-                newBfs->vwork = newWork;
-                newBfs->depth = queue.front()->depth+1;
-                newBfs->parent = queue.front();
-                queue.push(newBfs);
-              }
+  size_t bestMatchCount = 0;
+  vector<string> bestMatch;
+  for(auto letter: letters){
+    for(size_t xstart = 0; xstart < xmax; ++xstart){
+      for(size_t ystart = 0; ystart < ymax; ++ystart){
+        for(size_t xlen = 1; xlen <= (xmax-xstart); ++xlen){
+          for(size_t ylen = 1; ylen <= (ymax-ystart); ++ylen){
+            vector<string> rec = work;
+            updateRec(letter, ystart, xstart, ylen, xlen, rec);
+            size_t count = matchCount(rec, vin);
+            if(count > bestMatchCount){
+              bestMatchCount = count;
+              bestMatch = move(rec);
             }
           }
         }
       }
     }
-    queue.pop();
   }
-  return nullptr;
+
+  cout << bestMatch;
+  cout << "count: " << bestMatchCount << endl << endl;
+
+  if(testSolution(vin, bestMatch)){
+    cout << "solved!!" << endl;
+    return 1;
+  }
+
+  return addRectangle(vin, letters, bestMatch) + 1;
 }
 
 ///////////////////////////////////////////////////////
@@ -225,25 +137,8 @@ int main(){
   getInput(gVin);
   initRec(gVin.size(), gVin[0].size(), gVwork);
   getLetters(gVin, gLetters);
-  cout << "input:" << endl << gVin << endl;
+  cout << "input:" << endl << "==========" << endl << gVin << endl;
 
-  size_t numRectangles = 0;
-  while(!testSolution(gVin, gVwork)){
-    addRectangle(gVin, gLetters, gVwork);
-    cout << gVwork << endl;
-    numRectangles++;
-  }
-  cout << "# of rectangles: " << numRectangles << endl;
-
-  // Try to find a solution with fewer rectangles
-  vector<string> work;
-  initRec(gVin.size(), gVin[0].size(), work);
-  shared_ptr<bfsStruct> bfs = 
-    recursiveAddRectangle(gVin, gLetters, work, numRectangles);
-
-  // print bfs result
-  while(bfs->parent != nullptr){
-    cout << bfs->vwork << endl;
-    bfs = bfs->parent;
-  }
+  size_t numRecangles = addRectangle(gVin, gLetters, gVwork);
+  cout << "# of rectangles: " << numRecangles << endl;
 }
