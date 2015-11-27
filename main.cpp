@@ -115,8 +115,7 @@ void updateWorking(
   }
 }
 
-// Return number of matches
-size_t addRectangle(
+void addRectangle(
   const vector<string>& vin, 
   const set<char>& letters,
   vector<string>& vwork
@@ -144,9 +143,6 @@ size_t addRectangle(
     }
   }
   updateWorking(bestMatch, vwork);
-  cout << bestMatchCount << endl;
-  cout << vwork << endl;
-  return bestMatchCount;
 }
 
 bool testSolution(
@@ -161,6 +157,55 @@ bool testSolution(
   return true;
 }
 
+///////////////////////////////////////////////////////
+bool recursiveAddRectangle(
+  const vector<string>& vin, 
+  const set<char>& letters,
+  const vector<string>& vwork,
+  size_t depth,
+  size_t maxDepth
+){
+  if(depth == maxDepth){
+    //cout << vwork << endl;
+    return false;
+  }
+  size_t xmax = vin[0].size();
+  size_t ymax = vin.size();
+  for(auto letter: letters){
+    for(size_t xstart = 0; xstart < xmax; ++xstart){
+      for(size_t ystart = 0; ystart < ymax; ++ystart){
+        for(size_t xlen = 1; xlen <= (xmax-xstart); ++xlen){
+          for(size_t ylen = 1; ylen <= (ymax-ystart); ++ylen){
+            vector<string> rec;
+            initRec(ymax, xmax, rec);
+            createRec(letter, ystart, xstart, ylen, xlen, rec);
+            
+            auto newWork = vwork;
+            updateWorking(rec, newWork);
+            if(testSolution(vin, newWork)){
+              cout << "solved! " << depth << endl << newWork << endl;
+              return true;
+            }else{
+              bool ret = recursiveAddRectangle(
+                            vin, 
+                            letters, 
+                            newWork, 
+                            depth+1, 
+                            maxDepth);
+              if(ret){
+                cout << newWork << endl;
+                return true;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+///////////////////////////////////////////////////////
 int main(){
   vector<string> gVin;
   vector<string> gVwork;
@@ -169,11 +214,18 @@ int main(){
   getInput(gVin);
   initRec(gVin.size(), gVin[0].size(), gVwork);
   getLetters(gVin, gLetters);
-  cout << "input:" << endl << gVin;
-  cout << "vwork:" << endl << gVwork;
+  cout << "input:" << endl << gVin << endl;
 
+  size_t numRectangles = 0;
   while(!testSolution(gVin, gVwork)){
-  //for(auto i = 0; i < 5; ++i){
     addRectangle(gVin, gLetters, gVwork);
+    cout << gVwork << endl;
+    numRectangles++;
   }
+  cout << "# of rectangles: " << numRectangles << endl;
+
+  // Try to find a solution with fewer rectangles
+  vector<string> work;
+  initRec(gVin.size(), gVin[0].size(), work);
+  recursiveAddRectangle(gVin, gLetters, work, 1, numRectangles);
 }
