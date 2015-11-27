@@ -1,8 +1,10 @@
 #include <iostream>
+#include <memory>
 #include <set>
 #include <sstream>
 #include <string>
 #include <vector>
+#include <queue>
 #include <fstream>
 
 using namespace std;
@@ -158,51 +160,60 @@ bool testSolution(
 }
 
 ///////////////////////////////////////////////////////
-bool recursiveAddRectangle(
+struct bfsStruct{
+  vector<string> vwork;
+  size_t depth = 0;
+  shared_ptr<bfsStruct> parent = nullptr;
+};
+
+///////////////////////////////////////////////////////
+shared_ptr<bfsStruct> recursiveAddRectangle(
   const vector<string>& vin, 
   const set<char>& letters,
   const vector<string>& vwork,
-  size_t depth,
   size_t maxDepth
 ){
-  if(depth == maxDepth){
-    //cout << vwork << endl;
-    return false;
-  }
+  // queue holding upcoming working arrays for bfs
+  queue<shared_ptr<bfsStruct>> queue;
+  shared_ptr<bfsStruct> bfs(new bfsStruct);
+  bfs->vwork = vwork;
+  queue.push(bfs);
+
   size_t xmax = vin[0].size();
   size_t ymax = vin.size();
-  for(auto letter: letters){
-    for(size_t xstart = 0; xstart < xmax; ++xstart){
-      for(size_t ystart = 0; ystart < ymax; ++ystart){
-        for(size_t xlen = 1; xlen <= (xmax-xstart); ++xlen){
-          for(size_t ylen = 1; ylen <= (ymax-ystart); ++ylen){
-            vector<string> rec;
-            initRec(ymax, xmax, rec);
-            createRec(letter, ystart, xstart, ylen, xlen, rec);
-            
-            auto newWork = vwork;
-            updateWorking(rec, newWork);
-            if(testSolution(vin, newWork)){
-              cout << "solved! " << depth << endl << newWork << endl;
-              return true;
-            }else{
-              bool ret = recursiveAddRectangle(
-                            vin, 
-                            letters, 
-                            newWork, 
-                            depth+1, 
-                            maxDepth);
-              if(ret){
-                cout << newWork << endl;
-                return true;
+  while(queue.front()->depth < maxDepth){
+    for(auto letter: letters){
+      for(size_t xstart = 0; xstart < xmax; ++xstart){
+        for(size_t ystart = 0; ystart < ymax; ++ystart){
+          for(size_t xlen = 1; xlen <= (xmax-xstart); ++xlen){
+            for(size_t ylen = 1; ylen <= (ymax-ystart); ++ylen){
+              vector<string> rec;
+              initRec(ymax, xmax, rec);
+              createRec(letter, ystart, xstart, ylen, xlen, rec);
+              
+              auto newWork = queue.front()->vwork;
+              updateWorking(rec, newWork);
+              //cout << "trying:" << endl << newWork << endl;
+
+              if(testSolution(vin, newWork)){
+                cout << "solved! " << queue.front()->depth+1 
+                  << endl << newWork << endl;
+                return queue.front();
+              }else{
+                shared_ptr<bfsStruct> newBfs(new bfsStruct);
+                newBfs->vwork = newWork;
+                newBfs->depth = queue.front()->depth+1;
+                newBfs->parent = queue.front();
+                queue.push(newBfs);
               }
             }
           }
         }
       }
     }
+    queue.pop();
   }
-  return false;
+  return nullptr;
 }
 
 ///////////////////////////////////////////////////////
@@ -227,5 +238,12 @@ int main(){
   // Try to find a solution with fewer rectangles
   vector<string> work;
   initRec(gVin.size(), gVin[0].size(), work);
-  recursiveAddRectangle(gVin, gLetters, work, 1, numRectangles);
+  shared_ptr<bfsStruct> bfs = 
+    recursiveAddRectangle(gVin, gLetters, work, numRectangles);
+
+  // print bfs result
+  while(bfs->parent != nullptr){
+    cout << bfs->vwork << endl;
+    bfs = bfs->parent;
+  }
 }
